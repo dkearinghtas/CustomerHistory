@@ -10,14 +10,15 @@ def index():
 
 @app.route('/test')
 def test_data():
-    """Test data loading"""
+    """Test basic imports"""
     try:
-        # Test pandas import first
-        import pandas as pd
-        return f"<h1>Pandas imported successfully</h1><p>Version: {pd.__version__}</p><a href='/test2'>Test data_loader import</a>"
+        # Test basic imports first
+        import sys
+        import os
+        return f"<h1>Basic imports OK</h1><p>Python: {sys.version}</p><p>Working dir: {os.getcwd()}</p><a href='/test2'>Test pandas</a>"
     except Exception as e:
         import traceback
-        return f"<h1>Error importing pandas</h1><p>{e}</p><pre>{traceback.format_exc()}</pre>"
+        return f"<h1>Error with basic imports</h1><p>{e}</p><pre>{traceback.format_exc()}</pre>"
 
 @app.route('/test2')
 def test_data2():
