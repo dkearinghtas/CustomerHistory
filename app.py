@@ -12,10 +12,26 @@ use_live = os.getenv('USE_LIVE_DATA', 'False').lower() in ('1', 'true', 'yes')
 connection_string = os.getenv('FABRIC_SQL_CONNECTION', '')
 table_name = os.getenv('FABRIC_TABLE_NAME', 'invoices')
 
-if use_live:
-    data_loader = InvoiceDataLoader(use_live=True, connection_string=connection_string, table_name=table_name)
-else:
-    data_loader = InvoiceDataLoader(csv_path=csv_file)
+# Lazy-load data loader to speed up application startup
+_data_loader = None
+
+def get_data_loader():
+    """Lazy-load data loader on first use"""
+    global _data_loader
+    if _data_loader is None:
+        if use_live:
+            _data_loader = InvoiceDataLoader(use_live=True, connection_string=connection_string, table_name=table_name)
+        else:
+            _data_loader = InvoiceDataLoader(csv_path=csv_file)
+    return _data_loader
+
+# Create shorthand for backward compatibility
+@property
+def data_loader_property():
+    return get_data_loader()
+
+# Store property for use in routes
+app.data_loader_getter = get_data_loader
 
 
 @app.route('/')
@@ -26,7 +42,7 @@ def index():
 @app.route('/chronological')
 def chronological():
     """Chronological view of invoices"""
-    df = data_loader.get_chronological_view()
+    df = get_data_loader().get_chronological_view()
     
     # Optional filters
     invoice_num = request.args.get('invoice_number')
@@ -55,8 +71,8 @@ def chronological():
         })
     
     # Get unique customers and invoices for dropdowns
-    customers = data_loader.get_unique_customers()
-    invoice_options = data_loader.get_unique_invoice_numbers()
+    customers = get_data_loader().get_unique_customers()
+    invoice_options = get_data_loader().get_unique_invoice_numbers()
     
     return render_template('chronological.html', invoices=invoices, invoice_options=invoice_options, customers=customers)
 
@@ -64,16 +80,17 @@ def chronological():
 def grouped():
     """Grouped view by customer with parts and labor separated"""
     customer = request.args.get('customer')
+    loader = get_data_loader()
     
     # Filter by customer
     if customer:
-        customer_df = data_loader.df[data_loader.df['HISTHDR.LAST_NAME'] == customer]
+        customer_df = loader.df[loader.df['HISTHDR.LAST_NAME'] == customer]
     else:
-        customer_df = data_loader.df
+        customer_df = loader.df
     
     # Get parts and labor grouped views
-    parts_df = data_loader.get_parts_grouped_view(customer_df)
-    labor_df = data_loader.get_labor_grouped_view(customer_df)
+    parts_df = loader.get_parts_grouped_view(customer_df)
+    labor_df = loader.get_labor_grouped_view(customer_df)
     
     # Convert parts to list of dictionaries
     parts = []
@@ -98,7 +115,7 @@ def grouped():
         })
     
     # Get unique customers for dropdown
-    customers = data_loader.get_unique_customers()
+    customers = get_data_loader().get_unique_customers()
     
     return render_template('grouped.html', parts=parts, labor=labor, customers=customers, selected_customer=customer)
 
@@ -106,10 +123,11 @@ def grouped():
 def item_view():
     """Item lookup view - sales by item number"""
     item_number = request.args.get('item_number')
+    loader = get_data_loader()
     
     if item_number:
         # Filter data by item_number and sort by date descending
-        filtered_df = data_loader.df[data_loader.df['ITEM_NUMBER'] == item_number].sort_values('HISTHDR.INVOICE_DATE', ascending=False)
+        filtered_df = loader.df[loader.df['ITEM_NUMBER'] == item_number].sort_values('HISTHDR.INVOICE_DATE', ascending=False)
         
         # Convert to list of dictionaries
         data = []
@@ -130,7 +148,7 @@ def item_view():
     else:
         data = []
     
-    item_numbers = data_loader.get_unique_item_numbers()
+    item_numbers = get_data_loader().get_unique_item_numbers()
     
     return render_template('item.html', data=data, item_numbers=item_numbers, selected_item=item_number)
 
