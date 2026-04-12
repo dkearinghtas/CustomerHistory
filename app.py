@@ -39,4 +39,13 @@ app.data_loader_getter = get_data_loader
 @app.route('/')
 def index():
     """Home page with navigation"""
-    return render_template('index.html') 
+    return "<h1>InvoiceViewer App</h1><p>App is working! Data will be loaded on first request.</p><a href='/test'>Test data loading</a>"
+
+@app.route('/test')
+def test_data():
+    """Test data loading"""
+    try:
+        loader = get_data_loader()
+        return f"<h1>Data Loaded!</h1><p>Shape: {loader.df.shape}</p><p>Columns: {list(loader.df.columns)}</p><a href='/'>Back</a>"
+    except Exception as e:
+        return f"<h1>Error loading data</h1><p>{e}</p><pre>{__import__('traceback').format_exc()}</pre><a href='/'>Back</a>" 
