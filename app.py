@@ -25,6 +25,7 @@ def chronological():
     invoice_number = request.args.get('invoice_number', '').strip()
     customer = request.args.get('customer', '').strip()
     df = loader.get_chronological_view()
+    df = df.head(500)
 
     if invoice_number:
         df = df[df['INVOICE_NUMBER'].astype(str) == invoice_number]
