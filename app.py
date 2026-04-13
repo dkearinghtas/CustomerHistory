@@ -59,13 +59,16 @@ def chronological():
 def grouped():
     loader = get_loader()
     selected_customer = request.args.get('customer', '').strip()
-    grouped_df = loader.get_grouped_view()
-
+    
+    # Filter the dataframe based on selected customer
     if selected_customer:
-        grouped_df = grouped_df[grouped_df['Customer'] == selected_customer]
-
-    parts_df = loader.get_parts_grouped_view(loader.df)
-    labor_df = loader.get_labor_grouped_view(loader.df)
+        filtered_df = loader.df[loader.df['HISTHDR.LAST_NAME'] == selected_customer]
+    else:
+        filtered_df = loader.df
+    
+    # Get grouped views with the filtered dataframe
+    parts_df = loader.get_parts_grouped_view(filtered_df)
+    labor_df = loader.get_labor_grouped_view(filtered_df)
 
     parts = [
         {
