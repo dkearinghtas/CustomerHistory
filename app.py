@@ -14,6 +14,17 @@ def get_loader():
     return _loader
 
 
+def format_currency(value):
+    """Format a numeric value as a currency string"""
+    try:
+        if value is None or (isinstance(value, float) and os.path.isfile(str(value))): # avoid path issues
+            return "$0.00"
+        val = float(value)
+        return f"${val:,.2f}"
+    except (ValueError, TypeError):
+        return str(value) if value is not None else "$0.00"
+
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -44,8 +55,8 @@ def chronological():
             'part_number': row.get('ITEM_NUMBER', ''),
             'description': row.get('DESCRIPTION', ''),
             'quantity': row.get('QUANTITY', ''),
-            'price': row.get('SELL_PRICE', ''),
-            'labor': row.get('SELL_LABOR', ''),
+            'price': format_currency(row.get('SELL_PRICE', 0)),
+            'labor': format_currency(row.get('SELL_LABOR', 0)),
         })
 
     return render_template(
@@ -77,9 +88,9 @@ def grouped():
             'description': row['Description'],
             'purchase_count': row['Purchase Count'],
             'total_quantity': row['Total Quantity'],
-            'max_price': row['Max Price'],
-            'common_price': row['Common Price'],
-            'recent_price': row['Most Recent Price'],
+            'max_price': format_currency(row['Max Price']),
+            'common_price': format_currency(row['Common Price']),
+            'recent_price': format_currency(row['Most Recent Price']),
         }
         for _, row in parts_df.iterrows()
     ]
@@ -90,9 +101,9 @@ def grouped():
             'description': row['Description'],
             'labor_count': row['Labor Count'],
             'total_quantity': row['Total Quantity'],
-            'max_labor': row['Max Labor'],
-            'common_labor': row['Common Labor'],
-            'recent_labor': row['Most Recent Labor'],
+            'max_labor': format_currency(row['Max Labor']),
+            'common_labor': format_currency(row['Common Labor']),
+            'recent_labor': format_currency(row['Most Recent Labor']),
         }
         for _, row in labor_df.iterrows()
     ]
@@ -131,8 +142,8 @@ def item_lookup():
                 'customer': row.get('HISTHDR.LAST_NAME', ''),
                 'date': invoice_date,
                 'description': row.get('DESCRIPTION', ''),
-                'price': row.get('SELL_PRICE', ''),
-                'labor': row.get('SELL_LABOR', ''),
+                'price': format_currency(row.get('SELL_PRICE', 0)),
+                'labor': format_currency(row.get('SELL_LABOR', 0)),
             })
 
     return render_template(
