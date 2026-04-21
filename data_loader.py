@@ -66,20 +66,6 @@ class InvoiceDataLoader:
             conn.close()
 
         return df
-        
-        # Clean up data types
-        date_col = 'HISTHDR.INVOICE_DATE'
-        if date_col in self.df.columns:
-            self.df[date_col] = pd.to_datetime(
-                self.df[date_col], 
-                errors='coerce'
-            )
-        
-        # Convert numeric columns
-        numeric_cols = ['QUANTITY', 'SELL_PRICE', 'SELL_LABOR']
-        for col in numeric_cols:
-            if col in self.df.columns:
-                self.df[col] = pd.to_numeric(self.df[col], errors='coerce')
     
     def get_chronological_view(self):
         """Get invoices sorted by date (newest first)"""
