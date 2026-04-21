@@ -24,6 +24,15 @@
             <div class="col-md-8 offset-md-2">
                 <h1 class="text-center mb-5">Sales History Viewer</h1>
                 
+                {% if error %}
+                <div class="alert alert-danger" role="alert">
+                    <h4 class="alert-heading">⚠️ Data Loading Error</h4>
+                    <p>The application encountered an error while loading the invoice data. This is often due to a missing CSV file or a database connection issue.</p>
+                    <hr>
+                    <p class="mb-0"><strong>Error Details:</strong> {{ error }}</p>
+                </div>
+                {% endif %}
+                
                 <div class="card mb-3">
                     <div class="card-body">
                         <h5 class="card-title">📋 Chronological View</h5>

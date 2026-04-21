@@ -12,20 +12,28 @@ use_live = os.getenv('USE_LIVE_DATA', 'False').lower() in ('1', 'true', 'yes')
 connection_string = os.getenv('FABRIC_SQL_CONNECTION', '')
 table_name = os.getenv('FABRIC_TABLE_NAME', 'invoices')
 
-if use_live:
-    data_loader = InvoiceDataLoader(use_live=True, connection_string=connection_string, table_name=table_name)
-else:
-    data_loader = InvoiceDataLoader(csv_path=csv_file)
+data_error = None
+try:
+    if use_live:
+        data_loader = InvoiceDataLoader(use_live=True, connection_string=connection_string, table_name=table_name)
+    else:
+        data_loader = InvoiceDataLoader(csv_path=csv_file)
+except Exception as e:
+    print(f"Error loading data: {e}")
+    data_loader = None
+    data_error = str(e)
 
 
 @app.route('/')
 def index():
     """Home page with navigation"""
-    return render_template('index.html')
+    return render_template('index.html', error=data_error)
 
 @app.route('/chronological')
 def chronological():
     """Chronological view of invoices"""
+    if not data_loader:
+        return render_template('index.html', error=data_error)
     df = data_loader.get_chronological_view()
     
     # Optional filters
@@ -63,6 +71,8 @@ def chronological():
 @app.route('/grouped')
 def grouped():
     """Grouped view by customer with parts and labor separated"""
+    if not data_loader:
+        return render_template('index.html', error=data_error)
     customer = request.args.get('customer')
     
     # Filter by customer
@@ -105,6 +115,8 @@ def grouped():
 @app.route('/item')
 def item_view():
     """Item lookup view - sales by item number"""
+    if not data_loader:
+        return render_template('index.html', error=data_error)
     item_number = request.args.get('item_number')
     
     if item_number:
