@@ -1,134 +1,139 @@
-import os
 from flask import Flask, render_template, request
 from data_loader import InvoiceDataLoader
+from pathlib import Path
+import os
+import pandas as pd
 
 app = Flask(__name__)
-_loader = None
 
+# Use Microsoft Fabric semantic model connection when enabled, otherwise fall back to CSV
+csv_file = os.path.join(os.path.dirname(__file__), 'data', 'invoices.csv')
+use_live = os.getenv('USE_LIVE_DATA', 'False').lower() in ('1', 'true', 'yes')
+connection_string = os.getenv('FABRIC_SQL_CONNECTION', '')
+table_name = os.getenv('FABRIC_TABLE_NAME', 'invoices')
 
-def get_loader():
-    global _loader
-    if _loader is None:
-        csv_file = os.path.join(os.path.dirname(__file__), 'data', 'invoices.csv')
-        _loader = InvoiceDataLoader(csv_path=csv_file)
-    return _loader
+if use_live:
+    data_loader = InvoiceDataLoader(use_live=True, connection_string=connection_string, table_name=table_name)
+else:
+    data_loader = InvoiceDataLoader(csv_path=csv_file)
 
 
 @app.route('/')
 def index():
+    """Home page with navigation"""
     return render_template('index.html')
-
 
 @app.route('/chronological')
 def chronological():
-    loader = get_loader()
-    invoice_number = request.args.get('invoice_number', '').strip()
-    customer = request.args.get('customer', '').strip()
-    df = loader.get_chronological_view()
-    df = df.head(500)
-
-    if invoice_number:
-        df = df[df['INVOICE_NUMBER'].astype(str) == invoice_number]
+    """Chronological view of invoices"""
+    df = data_loader.get_chronological_view()
+    
+    # Optional filters
+    invoice_num = request.args.get('invoice_number')
+    if invoice_num:
+        df = df[df['INVOICE_NUMBER'].astype(str).str.contains(str(invoice_num), na=False)]
+    
+    customer = request.args.get('customer')
     if customer:
-        df = df[df['HISTHDR.LAST_NAME'] == customer]
-
+        customer_col = 'HISTHDR.LAST_NAME' if 'HISTHDR.LAST_NAME' in df.columns else 'LAST_NAME'
+        df = df[df[customer_col] == customer]
+    
+    # Limit to last 200 rows
+    df = df.head(200)
+    
+    # Convert to list of dictionaries for template
     invoices = []
     for _, row in df.iterrows():
-        invoice_date = row['HISTHDR.INVOICE_DATE']
-        if hasattr(invoice_date, 'strftime'):
-            invoice_date = invoice_date.strftime('%Y-%m-%d')
-
         invoices.append({
-            'invoice_number': row.get('INVOICE_NUMBER', ''),
-            'invoice_date': invoice_date,
-            'part_number': row.get('ITEM_NUMBER', ''),
-            'description': row.get('DESCRIPTION', ''),
-            'quantity': row.get('QUANTITY', ''),
-            'price': row.get('SELL_PRICE', ''),
-            'labor': row.get('SELL_LABOR', ''),
+            'invoice_number': row['INVOICE_NUMBER'],
+            'invoice_date': row['HISTHDR.INVOICE_DATE'].strftime('%m/%d/%y') if pd.notna(row['HISTHDR.INVOICE_DATE']) else 'N/A',
+            'part_number': row['ITEM_NUMBER'],
+            'description': row['DESCRIPTION'],
+            'quantity': f"{row['QUANTITY']:.0f}" if pd.notna(row['QUANTITY']) else '0',
+            'price': f"${row['SELL_PRICE']:.2f}" if pd.notna(row['SELL_PRICE']) else '$0.00',
+            'labor': f"${row['SELL_LABOR']:.2f}" if pd.notna(row['SELL_LABOR']) else '$0.00',
         })
-
-    return render_template(
-        'chronological.html',
-        invoices=invoices,
-        invoice_options=loader.get_unique_invoice_numbers(),
-        customers=loader.get_unique_customers(),
-    )
-
+    
+    # Get unique customers and invoices for dropdowns
+    customers = data_loader.get_unique_customers()
+    invoice_options = data_loader.get_unique_invoice_numbers()
+    
+    return render_template('chronological.html', invoices=invoices, invoice_options=invoice_options, customers=customers)
 
 @app.route('/grouped')
 def grouped():
-    loader = get_loader()
-    selected_customer = request.args.get('customer', '').strip()
+    """Grouped view by customer with parts and labor separated"""
+    customer = request.args.get('customer')
     
-    # Filter the dataframe based on selected customer
-    if selected_customer:
-        filtered_df = loader.df[loader.df['HISTHDR.LAST_NAME'] == selected_customer]
+    # Filter by customer
+    if customer:
+        customer_df = data_loader.df[data_loader.df['HISTHDR.LAST_NAME'] == customer]
     else:
-        filtered_df = loader.df
+        customer_df = data_loader.df
     
-    # Get grouped views with the filtered dataframe
-    parts_df = loader.get_parts_grouped_view(filtered_df)
-    labor_df = loader.get_labor_grouped_view(filtered_df)
-
-    parts = [
-        {
+    # Get parts and labor grouped views
+    parts_df = data_loader.get_parts_grouped_view(customer_df)
+    labor_df = data_loader.get_labor_grouped_view(customer_df)
+    
+    # Convert parts to list of dictionaries
+    parts = []
+    for _, row in parts_df.iterrows():
+        parts.append({
             'description': row['Description'],
-            'purchase_count': row['Purchase Count'],
-            'total_quantity': row['Total Quantity'],
-            'max_price': row['Max Price'],
-            'recent_price': row['Most Recent Price'],
-        }
-        for _, row in parts_df.iterrows()
-    ]
-
-    labor = [
-        {
+            'purchase_count': int(row['Purchase Count']),
+            'total_quantity': f"{row['Total Quantity']:.0f}" if pd.notna(row['Total Quantity']) else '0',
+            'max_price': f"${row['Max Price']:.2f}" if pd.notna(row['Max Price']) else '$0.00',
+            'recent_price': f"${row['Most Recent Price']:.2f}" if pd.notna(row['Most Recent Price']) else '$0.00',
+        })
+    
+    # Convert labor to list of dictionaries
+    labor = []
+    for _, row in labor_df.iterrows():
+        labor.append({
             'description': row['Description'],
-            'labor_count': row['Labor Count'],
-            'total_quantity': row['Total Quantity'],
-            'max_labor': row['Max Labor'],
-            'recent_labor': row['Most Recent Labor'],
-        }
-        for _, row in labor_df.iterrows()
-    ]
-
-    return render_template(
-        'grouped.html',
-        customers=loader.get_unique_customers(),
-        selected_customer=selected_customer,
-        parts=parts,
-        labor=labor,
-    )
-
+            'labor_count': int(row['Labor Count']),
+            'total_quantity': f"{row['Total Quantity']:.0f}" if pd.notna(row['Total Quantity']) else '0',
+            'max_labor': f"${row['Max Labor']:.2f}" if pd.notna(row['Max Labor']) else '$0.00',
+            'recent_labor': f"${row['Most Recent Labor']:.2f}" if pd.notna(row['Most Recent Labor']) else '$0.00',
+        })
+    
+    # Get unique customers for dropdown
+    customers = data_loader.get_unique_customers()
+    
+    return render_template('grouped.html', parts=parts, labor=labor, customers=customers, selected_customer=customer)
 
 @app.route('/item')
-def item_lookup():
-    loader = get_loader()
-    selected_item = request.args.get('item_number', '').strip()
-    item_numbers = loader.get_unique_item_numbers()
-    data = []
-
-    if selected_item:
-        df = loader.df[loader.df['ITEM_NUMBER'].astype(str) == selected_item].copy()
-        df = df.sort_values('HISTHDR.INVOICE_DATE', ascending=False)
-        for _, row in df.iterrows():
-            invoice_date = row['HISTHDR.INVOICE_DATE']
-            if hasattr(invoice_date, 'strftime'):
-                invoice_date = invoice_date.strftime('%Y-%m-%d')
-
+def item_view():
+    """Item lookup view - sales by item number"""
+    item_number = request.args.get('item_number')
+    
+    if item_number:
+        # Filter data by item_number and sort by date descending
+        filtered_df = data_loader.df[data_loader.df['ITEM_NUMBER'] == item_number].sort_values('HISTHDR.INVOICE_DATE', ascending=False)
+        
+        # Convert to list of dictionaries
+        data = []
+        for _, row in filtered_df.iterrows():
+            customer = f"{row['HISTHDR.LAST_NAME']}" if pd.notna(row['HISTHDR.LAST_NAME']) else 'N/A'
+            date = row['HISTHDR.INVOICE_DATE'].strftime('%m/%d/%y') if pd.notna(row['HISTHDR.INVOICE_DATE']) else 'N/A'
+            description = row['DESCRIPTION'] if pd.notna(row['DESCRIPTION']) else 'N/A'
+            price = f"${row['SELL_PRICE']:.2f}" if pd.notna(row['SELL_PRICE']) else '$0.00'
+            labor = f"${row['SELL_LABOR']:.2f}" if pd.notna(row['SELL_LABOR']) else '$0.00'
+            
             data.append({
-                'customer': row.get('HISTHDR.LAST_NAME', ''),
-                'date': invoice_date,
-                'description': row.get('DESCRIPTION', ''),
-                'price': row.get('SELL_PRICE', ''),
-                'labor': row.get('SELL_LABOR', ''),
+                'customer': customer,
+                'date': date,
+                'description': description,
+                'price': price,
+                'labor': labor
             })
+    else:
+        data = []
+    
+    item_numbers = data_loader.get_unique_item_numbers()
+    
+    return render_template('item.html', data=data, item_numbers=item_numbers, selected_item=item_number)
 
-    return render_template(
-        'item.html',
-        item_numbers=item_numbers,
-        selected_item=selected_item,
-        data=data,
-    )
-
+if __name__ == '__main__':
+    # This runs the app on port 8000
+    app.run(port=8000) 
