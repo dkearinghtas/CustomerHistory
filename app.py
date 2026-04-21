@@ -78,6 +78,7 @@ def grouped():
             'purchase_count': row['Purchase Count'],
             'total_quantity': row['Total Quantity'],
             'max_price': row['Max Price'],
+            'common_price': row['Common Price'],
             'recent_price': row['Most Recent Price'],
         }
         for _, row in parts_df.iterrows()
@@ -90,6 +91,7 @@ def grouped():
             'labor_count': row['Labor Count'],
             'total_quantity': row['Total Quantity'],
             'max_labor': row['Max Labor'],
+            'common_labor': row['Common Labor'],
             'recent_labor': row['Most Recent Labor'],
         }
         for _, row in labor_df.iterrows()

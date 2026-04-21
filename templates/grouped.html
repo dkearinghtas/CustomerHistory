@@ -54,6 +54,7 @@
                         <th class="text-center">Purchase Count</th>
                         <th class="text-end">Total Qty</th>
                         <th class="text-end">Max Price</th>
+                        <th class="text-end text-success">Common Price</th>
                         <th class="text-end">Most Recent Price</th>
                     </tr>
                 </thead>
@@ -68,12 +69,13 @@
                             </td>
                             <td class="text-end">{{ part.total_quantity }}</td>
                             <td class="text-end">{{ part.max_price }}</td>
+                            <td class="text-end text-success"><strong>{{ part.common_price }}</strong></td>
                             <td class="text-end">{{ part.recent_price }}</td>
                         </tr>
                         {% endfor %}
                     {% else %}
                         <tr>
-                            <td colspan="6" class="text-center text-muted">No parts data found</td>
+                            <td colspan="7" class="text-center text-muted">No parts data found</td>
                         </tr>
                     {% endif %}
                 </tbody>
@@ -97,6 +99,7 @@
                         <th class="text-center">Labor Count</th>
                         <th class="text-end">Total Qty</th>
                         <th class="text-end">Max Labor</th>
+                        <th class="text-end text-success">Common Labor</th>
                         <th class="text-end">Most Recent Labor</th>
                     </tr>
                 </thead>
@@ -111,12 +114,13 @@
                             </td>
                             <td class="text-end">{{ lab.total_quantity }}</td>
                             <td class="text-end">{{ lab.max_labor }}</td>
+                            <td class="text-end text-success"><strong>{{ lab.common_labor }}</strong></td>
                             <td class="text-end">{{ lab.recent_labor }}</td>
                         </tr>
                         {% endfor %}
                     {% else %}
                         <tr>
-                            <td colspan="6" class="text-center text-muted">No labor data found</td>
+                            <td colspan="7" class="text-center text-muted">No labor data found</td>
                         </tr>
                     {% endif %}
                 </tbody>

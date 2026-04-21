@@ -124,16 +124,17 @@ class InvoiceDataLoader:
             return pd.DataFrame()
         
         # Group by item number + description and aggregate
+        # Use lambda for mode to pick the most frequent price
         grouped = parts_df.groupby(['ITEM_NUMBER', 'DESCRIPTION']).agg({
             'INVOICE_NUMBER': 'count',
             'QUANTITY': 'sum',
-            'SELL_PRICE': ['max', 'min'],
+            'SELL_PRICE': ['max', 'min', lambda x: x.mode().iloc[0] if not x.mode().empty else None],
             'HISTHDR.INVOICE_DATE': 'max'
         }).reset_index()
         
         # Flatten column names
         grouped.columns = ['Item Number', 'Description', 'Purchase Count', 'Total Quantity', 
-                          'Max Price', 'Min Price', 'Most Recent Date']
+                          'Max Price', 'Min Price', 'Common Price', 'Most Recent Date']
         
         # Get the most recent price for each unique item (Number + Description)
         sorted_by_date = parts_df.sort_values('HISTHDR.INVOICE_DATE', ascending=False)
@@ -154,16 +155,17 @@ class InvoiceDataLoader:
             return pd.DataFrame()
         
         # Group by item number + description and aggregate
+        # Use lambda for mode to pick the most frequent labor cost
         grouped = labor_df.groupby(['ITEM_NUMBER', 'DESCRIPTION']).agg({
             'INVOICE_NUMBER': 'count',
             'QUANTITY': 'sum',
-            'SELL_LABOR': ['max', 'min'],
+            'SELL_LABOR': ['max', 'min', lambda x: x.mode().iloc[0] if not x.mode().empty else None],
             'HISTHDR.INVOICE_DATE': 'max'
         }).reset_index()
         
         # Flatten column names
         grouped.columns = ['Item Number', 'Description', 'Labor Count', 'Total Quantity', 
-                          'Max Labor', 'Min Labor', 'Most Recent Date']
+                          'Max Labor', 'Min Labor', 'Common Labor', 'Most Recent Date']
         
         # Get the most recent labor cost for each unique item (Number + Description)
         sorted_by_date = labor_df.sort_values('HISTHDR.INVOICE_DATE', ascending=False)
