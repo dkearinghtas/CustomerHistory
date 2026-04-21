@@ -23,6 +23,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: List files for verification
+        run: |
+          ls -R
+
       - name: Azure login
         uses: azure/login@v1
         with:
