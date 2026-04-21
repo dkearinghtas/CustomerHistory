@@ -9,7 +9,7 @@ _loader = None
 def get_loader():
     global _loader
     if _loader is None:
-        csv_file = os.path.join(os.path.dirname(__file__), 'data', 'invoices.csv')
+        csv_file = os.path.join(os.path.dirname(__file__), 'data', 'HISTLINE for Invoice Viewer copy.csv')
         _loader = InvoiceDataLoader(csv_path=csv_file)
     return _loader
 
@@ -73,6 +73,7 @@ def grouped():
 
     parts = [
         {
+            'item_number': row['Item Number'],
             'description': row['Description'],
             'purchase_count': row['Purchase Count'],
             'total_quantity': row['Total Quantity'],
@@ -84,6 +85,7 @@ def grouped():
 
     labor = [
         {
+            'item_number': row['Item Number'],
             'description': row['Description'],
             'labor_count': row['Labor Count'],
             'total_quantity': row['Total Quantity'],
@@ -106,11 +108,17 @@ def grouped():
 def item_lookup():
     loader = get_loader()
     selected_item = request.args.get('item_number', '').strip()
+    search_description = request.args.get('description', '').strip()
     item_numbers = loader.get_unique_item_numbers()
     data = []
 
-    if selected_item:
-        df = loader.df[loader.df['ITEM_NUMBER'].astype(str) == selected_item].copy()
+    if selected_item or search_description:
+        df = loader.df.copy()
+        if selected_item:
+            df = df[df['ITEM_NUMBER'].astype(str) == selected_item]
+        if search_description:
+            df = df[df['DESCRIPTION'].astype(str).str.contains(search_description, case=False, na=False)]
+            
         df = df.sort_values('HISTHDR.INVOICE_DATE', ascending=False)
         for _, row in df.iterrows():
             invoice_date = row['HISTHDR.INVOICE_DATE']

@@ -26,7 +26,7 @@
         <div class="card mb-4">
             <div class="card-body">
                 <form method="GET" class="row g-3">
-                    <div class="col-md-6">
+                    <div class="col-md-4">
                         <label for="item_number" class="form-label">Filter by Item Number</label>
                         <select class="form-select" id="item_number" name="item_number">
                             <option value="">Select Item Number</option>
@@ -35,7 +35,11 @@
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="col-md-6 d-flex align-items-end">
+                    <div class="col-md-4">
+                        <label for="description" class="form-label">Search by Description</label>
+                        <input type="text" class="form-control" id="description" name="description" placeholder="e.g. Ecopia" value="{{ request.args.get('description', '') }}">
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
                         <button type="submit" class="btn btn-primary me-2">Filter</button>
                         <a href="/item" class="btn btn-secondary">Clear</a>
                     </div>

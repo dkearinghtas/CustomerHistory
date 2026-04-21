@@ -49,6 +49,7 @@
             <table class="table table-striped table-hover">
                 <thead class="table-dark">
                     <tr>
+                        <th>Item Number</th>
                         <th>Item Description</th>
                         <th class="text-center">Purchase Count</th>
                         <th class="text-end">Total Qty</th>
@@ -60,6 +61,7 @@
                     {% if parts %}
                         {% for part in parts %}
                         <tr>
+                            <td><code>{{ part.item_number }}</code></td>
                             <td><strong>{{ part.description }}</strong></td>
                             <td class="text-center">
                                 <span class="badge bg-info">{{ part.purchase_count }}</span>
@@ -71,7 +73,7 @@
                         {% endfor %}
                     {% else %}
                         <tr>
-                            <td colspan="5" class="text-center text-muted">No parts data found</td>
+                            <td colspan="6" class="text-center text-muted">No parts data found</td>
                         </tr>
                     {% endif %}
                 </tbody>
@@ -90,6 +92,7 @@
             <table class="table table-striped table-hover">
                 <thead class="table-dark">
                     <tr>
+                        <th>Item Number</th>
                         <th>Item Description</th>
                         <th class="text-center">Labor Count</th>
                         <th class="text-end">Total Qty</th>
@@ -101,6 +104,7 @@
                     {% if labor %}
                         {% for lab in labor %}
                         <tr>
+                            <td><code>{{ lab.item_number }}</code></td>
                             <td><strong>{{ lab.description }}</strong></td>
                             <td class="text-center">
                                 <span class="badge bg-warning">{{ lab.labor_count }}</span>
@@ -112,7 +116,7 @@
                         {% endfor %}
                     {% else %}
                         <tr>
-                            <td colspan="5" class="text-center text-muted">No labor data found</td>
+                            <td colspan="6" class="text-center text-muted">No labor data found</td>
                         </tr>
                     {% endif %}
                 </tbody>

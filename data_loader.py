@@ -34,6 +34,21 @@ class InvoiceDataLoader:
 
         self.df = self.df.rename(columns=column_mapping)
 
+        # Prepend TIRE_SIZE to DESCRIPTION if it applies
+        if 'TIRE_SIZE' in self.df.columns and 'DESCRIPTION' in self.df.columns:
+            # Convert TIRE_SIZE to string and handle NULLs
+            self.df['TIRE_SIZE_STR'] = self.df['TIRE_SIZE'].astype(str).replace(['nan', 'None', 'NULL'], '')
+            
+            def prefix_description(row):
+                val = row['TIRE_SIZE_STR']
+                tire_size = str(val).strip() if pd.notna(val) else ""
+                desc = str(row['DESCRIPTION']).strip()
+                if tire_size and tire_size.lower() != 'nan':
+                    return f"{tire_size} {desc}"
+                return desc
+            
+            self.df['DESCRIPTION'] = self.df.apply(prefix_description, axis=1)
+
         # Exclude specified item codes (including FET)
         self.df = self.df[~self.df['ITEM_NUMBER'].astype(str).str.upper().eq('FET')]
 
@@ -108,8 +123,8 @@ class InvoiceDataLoader:
         if len(parts_df) == 0:
             return pd.DataFrame()
         
-        # Group by description and aggregate
-        grouped = parts_df.groupby('DESCRIPTION').agg({
+        # Group by item number + description and aggregate
+        grouped = parts_df.groupby(['ITEM_NUMBER', 'DESCRIPTION']).agg({
             'INVOICE_NUMBER': 'count',
             'QUANTITY': 'sum',
             'SELL_PRICE': ['max', 'min'],
@@ -117,16 +132,16 @@ class InvoiceDataLoader:
         }).reset_index()
         
         # Flatten column names
-        grouped.columns = ['Description', 'Purchase Count', 'Total Quantity', 
+        grouped.columns = ['Item Number', 'Description', 'Purchase Count', 'Total Quantity', 
                           'Max Price', 'Min Price', 'Most Recent Date']
         
-        # Get the most recent price for each description
+        # Get the most recent price for each unique item (Number + Description)
         sorted_by_date = parts_df.sort_values('HISTHDR.INVOICE_DATE', ascending=False)
-        recent_prices = sorted_by_date.groupby('DESCRIPTION')['SELL_PRICE'].first().reset_index()
-        recent_prices.columns = ['Description', 'Most Recent Price']
+        recent_prices = sorted_by_date.groupby(['ITEM_NUMBER', 'DESCRIPTION'])['SELL_PRICE'].first().reset_index()
+        recent_prices.columns = ['Item Number', 'Description', 'Most Recent Price']
         
         # Merge to add most recent price
-        grouped = grouped.merge(recent_prices, on='Description', how='left')
+        grouped = grouped.merge(recent_prices, on=['Item Number', 'Description'], how='left')
         
         return grouped.sort_values('Purchase Count', ascending=False)
     
@@ -138,8 +153,8 @@ class InvoiceDataLoader:
         if len(labor_df) == 0:
             return pd.DataFrame()
         
-        # Group by description and aggregate
-        grouped = labor_df.groupby('DESCRIPTION').agg({
+        # Group by item number + description and aggregate
+        grouped = labor_df.groupby(['ITEM_NUMBER', 'DESCRIPTION']).agg({
             'INVOICE_NUMBER': 'count',
             'QUANTITY': 'sum',
             'SELL_LABOR': ['max', 'min'],
@@ -147,16 +162,16 @@ class InvoiceDataLoader:
         }).reset_index()
         
         # Flatten column names
-        grouped.columns = ['Description', 'Labor Count', 'Total Quantity', 
+        grouped.columns = ['Item Number', 'Description', 'Labor Count', 'Total Quantity', 
                           'Max Labor', 'Min Labor', 'Most Recent Date']
         
-        # Get the most recent labor cost for each description
+        # Get the most recent labor cost for each unique item (Number + Description)
         sorted_by_date = labor_df.sort_values('HISTHDR.INVOICE_DATE', ascending=False)
-        recent_labor = sorted_by_date.groupby('DESCRIPTION')['SELL_LABOR'].first().reset_index()
-        recent_labor.columns = ['Description', 'Most Recent Labor']
+        recent_labor = sorted_by_date.groupby(['ITEM_NUMBER', 'DESCRIPTION'])['SELL_LABOR'].first().reset_index()
+        recent_labor.columns = ['Item Number', 'Description', 'Most Recent Labor']
         
         # Merge to add most recent labor
-        grouped = grouped.merge(recent_labor, on='Description', how='left')
+        grouped = grouped.merge(recent_labor, on=['Item Number', 'Description'], how='left')
         
         return grouped.sort_values('Labor Count', ascending=False)
     
