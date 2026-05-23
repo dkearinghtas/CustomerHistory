@@ -1,6 +1,10 @@
 import os
+import pandas as pd
 from flask import Flask, render_template, request
 from data_loader import InvoiceDataLoader
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
 _loader = None
@@ -9,8 +13,12 @@ _loader = None
 def get_loader():
     global _loader
     if _loader is None:
-        csv_file = os.path.join(os.path.dirname(__file__), 'data', 'HISTLINE for Invoice Viewer copy.csv')
-        _loader = InvoiceDataLoader(csv_path=csv_file)
+        use_live = os.getenv('USE_LIVE_DATABASE', 'false').lower() in ('true', '1', 'yes')
+        if use_live:
+            _loader = InvoiceDataLoader(use_live=True)
+        else:
+            csv_file = os.path.join(os.path.dirname(__file__), 'data', 'HISTLINE for Invoice Viewer copy.csv')
+            _loader = InvoiceDataLoader(csv_path=csv_file)
     return _loader
 
 
@@ -35,13 +43,15 @@ def chronological():
     loader = get_loader()
     invoice_number = request.args.get('invoice_number', '').strip()
     customer = request.args.get('customer', '').strip()
+    
     df = loader.get_chronological_view()
-    df = df.head(500)
 
     if invoice_number:
         df = df[df['INVOICE_NUMBER'].astype(str) == invoice_number]
     if customer:
         df = df[df['HISTHDR.LAST_NAME'] == customer]
+        
+    df = df.head(500)
 
     invoices = []
     for _, row in df.iterrows():
@@ -72,13 +82,11 @@ def grouped():
     loader = get_loader()
     selected_customer = request.args.get('customer', '').strip()
     
-    # Filter the dataframe based on selected customer
     if selected_customer:
         filtered_df = loader.df[loader.df['HISTHDR.LAST_NAME'] == selected_customer]
     else:
         filtered_df = loader.df
-    
-    # Get grouped views with the filtered dataframe
+        
     parts_df = loader.get_parts_grouped_view(filtered_df)
     labor_df = loader.get_labor_grouped_view(filtered_df)
 
@@ -137,10 +145,16 @@ def item_lookup():
             invoice_date = row['HISTHDR.INVOICE_DATE']
             if hasattr(invoice_date, 'strftime'):
                 invoice_date = invoice_date.strftime('%Y-%m-%d')
+                
+            tire_size = row.get('TIRE_SIZE', '')
+            if pd.isna(tire_size) or str(tire_size).lower() in ['nan', 'none', 'null']:
+                tire_size = ''
 
             data.append({
                 'customer': row.get('HISTHDR.LAST_NAME', ''),
                 'date': invoice_date,
+                'item_number': row.get('ITEM_NUMBER', ''),
+                'tire_size': tire_size,
                 'description': row.get('DESCRIPTION', ''),
                 'price': format_currency(row.get('SELL_PRICE', 0)),
                 'labor': format_currency(row.get('SELL_LABOR', 0)),
@@ -153,3 +167,5 @@ def item_lookup():
         data=data,
     )
 
+if __name__ == '__main__':
+    app.run(debug=True, port=5000)
